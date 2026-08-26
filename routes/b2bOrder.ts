@@ -16,8 +16,18 @@ import * as utils from '../lib/utils'
 export function b2bOrder () {
   return ({ body }: Request, res: Response, next: NextFunction) => {
     if (utils.isChallengeEnabled(challenges.rceChallenge) || utils.isChallengeEnabled(challenges.rceOccupyChallenge)) {
-      const orderLinesData = body.orderLinesData || ''
+      const orderLinesData = typeof body.orderLinesData === 'string' ? body.orderLinesData : String(body.orderLinesData || '')
       try {
+        const dangerousPattern = /\b(this|function|constructor|prototype|__proto__|process|require|global|Function|eval|exec|spawn|child_process|import|fs|os|system|mainModule|module|arguments|caller|callee|Reflect|Proxy|Object|String|RegExp|Symbol|Array|Number|Boolean|Date|Math|JSON|Error|Promise|safeEval|getPrototypeOf|getOwnProperty|__defineGetter__|__defineSetter__|parseInt|parseFloat|isNaN|isFinite)\b/i
+        if (
+          dangerousPattern.test(orderLinesData) ||
+          orderLinesData.includes('\\') ||
+          orderLinesData.includes('[') ||
+          orderLinesData.includes(']') ||
+          orderLinesData.includes('=>')
+        ) {
+          throw new Error('Blocked malicious input')
+        }
         const sandbox = { safeEval, orderLinesData }
         vm.createContext(sandbox)
         vm.runInContext('safeEval(orderLinesData)', sandbox, { timeout: 2000 })
